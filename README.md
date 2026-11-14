@@ -566,38 +566,176 @@ Workflow file:
 .github/workflows/ci-cd.yml
 ```
 
+Workflow name: **DevConnect CI/CD**
+
+### Workflow triggers and settings
+
+```text
+Triggers:
+  push to main
+  pull_request to main
+
+Permissions:
+  contents: write        -- needed for committing GitOps image tag updates
+  security-events: write -- needed for uploading security scan results
+  actions: read          -- needed for reading workflow run metadata
+
+Concurrency:
+  group: devconnect-<branch-or-pr-ref>
+  cancel-in-progress: true -- cancels older runs on the same branch/PR
+
+Global environment variables:
+  DOCKERHUB_USERNAME: bongodev
+  IMAGE_TAG: <git-commit-sha>
+```
+
+Concurrency prevents wasted runner time. If you push twice quickly to main, the first run is cancelled and only the latest commit is built and deployed.
+
+### Pipeline jobs overview
+
+```text
+tests --> security --> docker --> gitops --> cd-verify
+                                                |
+                                             notify
+                                          (runs always)
+```
+
+All five jobs feed into `notify`, which runs regardless of success or failure.
+
+### Job 1: Tests and Build Validation (`tests`)
+
+Runs on: every push and every PR to main.
+
+| Step | What it does |
+|---|---|
+| Checkout source | Clones the repo |
+| Set up Python 3.12 | Installs Python for backend tests |
+| Install Python test dependencies | Installs `requirements-dev.txt` and every service's `requirements.txt` |
+| Run Python tests | Runs `pytest` across all backend services |
+| Set up Node.js 20 | Installs Node with npm cache from `frontend/package-lock.json` |
+| Install frontend dependencies | `npm install --legacy-peer-deps` in `frontend/` |
+| Run frontend smoke tests | `npm test` in `frontend/` |
+| Build frontend | `npm run build` to confirm production build works |
+
+If any test or the frontend build fails, the pipeline stops here.
+
+### Job 2: Security and Code Quality (`security`)
+
+Runs after: `tests` passes.
+
+| Step | What it does |
+|---|---|
+| Checkout source (full history) | `fetch-depth: 0` for SonarQube blame data |
+| Trivy filesystem scan | Scans the repo for CRITICAL vulnerabilities. Fails the build if any are found (`exit-code: 1`). Ignores unfixed CVEs |
+| OWASP Dependency-Check | Scans project dependencies. Generates an HTML report. Fails if any dependency has CVSS >= 9 |
+| Upload OWASP report | Uploads the HTML report as a GitHub Actions artifact (available even on failure) |
+| SonarQube scan | Runs only if `SONAR_TOKEN` and `SONAR_HOST_URL` secrets are configured. Optional for student labs |
+
+### Job 3: Build, Scan, and Push Docker Images (`docker`)
+
+Runs after: `security` passes.
+Condition: only on push to `main` (skipped on PRs).
+
+Uses a **matrix strategy** to build all 8 services in parallel:
+
+| Service | Build context | Image name |
+|---|---|---|
+| frontend | `./frontend` | `devconnect-frontend` |
+| auth-service | `./services/auth-service` | `devconnect-auth-service` |
+| user-service | `./services/user-service` | `devconnect-user-service` |
+| post-service | `./services/post-service` | `devconnect-post-service` |
+| like-service | `./services/like-service` | `devconnect-like-service` |
+| comment-service | `./services/comment-service` | `devconnect-comment-service` |
+| analytics-service | `./services/analytics-service` | `devconnect-analytics-service` |
+| worker-service | `./services/worker-service` | `devconnect-worker-service` |
+
+Each matrix entry runs these steps:
+
+| Step | What it does |
+|---|---|
+| Set up Docker Buildx | Enables advanced build features |
+| Login to DockerHub | Authenticates with `DOCKERHUB_TOKEN` secret |
+| Build image locally | `docker build` with `load: true` so the image stays local for scanning |
+| Trivy image scan | Scans the built image for CRITICAL and HIGH vulnerabilities. Fails if any are found |
+| Push Docker image | Pushes to DockerHub with two tags: `<git-sha>` and `latest` |
+
+`fail-fast: false` means if one service image fails, the others still build. This avoids re-running the entire matrix for a single service fix.
+
+### Job 4: Update GitOps Manifests (`gitops`)
+
+Runs after: `docker` passes.
+Condition: only on push to `main`.
+
+| Step | What it does |
+|---|---|
+| Checkout source | Clones repo with `GITHUB_TOKEN` for push access |
+| Update Kubernetes image tags | Runs `python scripts/update-kustomize-images.py "<git-sha>"` to rewrite image tags in `k8s/overlays/prod/kustomization.yaml` |
+| Commit GitOps image updates | Commits and pushes if there are changes. Commit message: `chore(gitops): deploy <git-sha>`. No-op if tags are already current |
+
+The commit is made by `github-actions[bot]`. ArgoCD watches this file and auto-syncs when it changes.
+
+### Job 5: Verify ArgoCD Runtime Deployment (`cd-verify`)
+
+Runs after: `gitops` passes.
+Condition: only on push to `main`.
+
+This job SSHes into the EC2 instance and runs a full deployment verification:
+
+| Step | What it does |
+|---|---|
+| Validate EC2 secrets | Checks that `EC2_HOST`, `EC2_USER`, `EC2_SSH_PRIVATE_KEY` are set. Defaults `EC2_SSH_PORT` to 22 |
+| Configure SSH | Writes the private key, runs `ssh-keyscan`, and tests the connection |
+| Verify ArgoCD sync | Hard-refreshes the ArgoCD app, then polls up to 60 times (10s apart) until sync=Synced and health=Healthy |
+| Verify rollouts | Checks `rollout status` for all 8 Deployments + postgres and redis StatefulSets (300s timeout each) |
+| Verify Prometheus endpoints | Execs into auth, post, analytics, and worker pods to confirm `/prometheus` and `/metrics` return expected metric names |
+| Check ServiceMonitors | Confirms `devconnect-fastapi-services` and `devconnect-worker-service` ServiceMonitor resources exist |
+
+If any check fails, the job fails and the notification email reports it.
+
+### Job 6: Email Notification (`notify`)
+
+Runs: **always**, regardless of whether other jobs passed or failed.
+Depends on: all five previous jobs.
+
+| Step | What it does |
+|---|---|
+| Decide pipeline result | Checks all job results. SUCCESS only if tests + security passed and docker/gitops/cd-verify are success or skipped (PR case) |
+| Send email | Sends a bongoDev branded HTML email via Gmail SMTP with job-level pass/fail status, commit info, and a link to the workflow run |
+
+The email is skipped silently if SMTP secrets are not configured.
+
 ### Pull request behavior
 
 On pull request to `main`, the workflow runs:
 
 ```text
-Python tests
-Frontend tests
-Frontend build
-Trivy filesystem scan
-OWASP Dependency-Check
-SonarQube scan if secrets exist
-Email notification if SMTP secrets exist
+tests job    -- Python tests, frontend tests, frontend build
+security job -- Trivy FS scan, OWASP Dependency-Check, SonarQube (optional)
+notify job   -- email notification (optional)
 ```
 
-Pull requests do **not** push Docker images and do **not** deploy.
+Pull requests do **not** build Docker images, do **not** update GitOps manifests, and do **not** deploy.
 
 ### Push to main behavior
 
-On push to `main`, the workflow runs:
+On push to `main`, the full pipeline runs:
 
 ```text
-Tests
-Security scans
-Build Docker images
-Trivy image scans
-Push images to DockerHub
+tests -> security -> docker (8 parallel image builds) -> gitops -> cd-verify -> notify
+```
+
+```text
+Tests and build validation
+Security scans (Trivy FS, OWASP, SonarQube)
+Build Docker images (8 services in parallel matrix)
+Trivy image scans (per image)
+Push images to DockerHub (sha + latest tags)
 Update k8s/overlays/prod/kustomization.yaml with the Git SHA tag
-Commit/push GitOps manifest update
+Commit and push GitOps manifest update
 ArgoCD detects the change and deploys
 GitHub Actions SSHes into EC2 and verifies ArgoCD is Synced + Healthy
 GitHub Actions verifies Kubernetes rollout status and app metrics endpoints
-Send bongoDev branded Gmail notification if configured
+Send bongoDev branded Gmail notification
 ```
 
 DockerHub images pushed by the pipeline:
