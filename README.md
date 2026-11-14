@@ -6,6 +6,162 @@ DockerHub username configured in this project: **`bongodev`**
 
 ---
 
+## Full Infrastructure Architecture
+
+The diagram below shows how every component connects -- from developer laptop to production observability.
+
+```
++-----------------------------------------------------------------------------------+
+|                              DEVELOPER WORKSTATION                                |
+|  Git push / PR ──> GitHub Repository                                              |
+|  Terraform apply ──> AWS EC2                                                      |
++-----------------------------------------------------------------------------------+
+        │                                          │
+        ▼                                          ▼
++─────────────────────────┐          +─────────────────────────────────┐
+│   GITHUB ACTIONS CI/CD  │          │   TERRAFORM (IaC)               │
+│                         │          │                                 │
+│  PR Pipeline:           │          │  Provisions:                    │
+│   pytest + npm test     │          │   EC2 instance (Ubuntu 22.04)   │
+│   Trivy FS scan         │          │   Security Group (22,80,443)    │
+│   OWASP Dep-Check       │          │   gp3 EBS volume (30 GB)        │
+│   SonarQube (optional)  │          │   SSM access (optional)         │
+│                         │          +─────────────────────────────────┘
+│  Push-to-main Pipeline: │
+│   All PR checks         │
+│   Docker build x8 imgs  │──────┐
+│   Trivy image scan      │      │
+│   Push to DockerHub     │      │
+│   Update kustomization  │──┐   │
+│   CD verify via SSH     │  │   │
+│   Gmail notification    │  │   │
+└─────────────────────────┘  │   │
+                             │   │
+        ┌────────────────────┘   │
+        ▼                        ▼
++───────────────┐    +────────────────────┐
+│  GIT REPO     │    │  DOCKERHUB         │
+│  (GitOps)     │    │  (Image Registry)  │
+│               │    │                    │
+│  k8s/overlays │    │  bongodev/         │
+│  /prod/       │    │   devconnect-*:sha │
+│  kustomization│    │   devconnect-*:latest
+│  .yaml        │    +────────────────────┘
+└───────┬───────┘              │
+        │  watches             │  pulls images
+        ▼                      ▼
++──────────────────────────────────────────────────────────────────────────────────+
+│                         EC2 INSTANCE  (t3.large, Ubuntu)                         │
+│                                                                                  │
+│  ┌──────────────────────────────────────────────────────────────────────────┐    │
+│  │                          K3S KUBERNETES CLUSTER                          │    │
+│  │                                                                          │    │
+│  │  ┌─────────────────────────────────────────────────────────────────┐     │    │
+│  │  │  NAMESPACE: argocd                                              │     │    │
+│  │  │                                                                 │     │    │
+│  │  │  ArgoCD Server ◄── watches Git repo kustomization.yaml          │     │    │
+│  │  │       │             auto-syncs manifests to devconnect namespace │     │    │
+│  │  └───────┼─────────────────────────────────────────────────────────┘     │    │
+│  │          │ deploys                                                       │    │
+│  │          ▼                                                               │    │
+│  │  ┌─────────────────────────────────────────────────────────────────┐     │    │
+│  │  │  NAMESPACE: devconnect                                          │     │    │
+│  │  │                                                                 │     │    │
+│  │  │          ┌──────────────────────────────┐                       │     │    │
+│  │  │          │   Traefik Ingress (k3s)      │                       │     │    │
+│  │  │          │   host: devconnect.local      │                       │     │    │
+│  │  │          │   ports: 80 / 443             │                       │     │    │
+│  │  │          └──────────────┬───────────────┘                       │     │    │
+│  │  │                         │                                       │     │    │
+│  │  │                         ▼                                       │     │    │
+│  │  │          ┌──────────────────────────────┐                       │     │    │
+│  │  │          │   FRONTEND (Nginx + React)   │                       │     │    │
+│  │  │          │   Deployment + Service :80   │                       │     │    │
+│  │  │          └──────────────┬───────────────┘                       │     │    │
+│  │  │            Nginx reverse-proxies /api/* to:                     │     │    │
+│  │  │                         │                                       │     │    │
+│  │  │    ┌────────┬───────────┼───────────┬────────────┐              │     │    │
+│  │  │    ▼        ▼           ▼           ▼            ▼              │     │    │
+│  │  │ ┌───────┐┌───────┐┌─────────┐┌──────────┐┌───────────┐        │     │    │
+│  │  │ │ Auth  ││ User  ││  Post   ││   Like   ││  Comment  │        │     │    │
+│  │  │ │Service││Service││ Service ││  Service ││  Service  │        │     │    │
+│  │  │ │ :8000 ││ :8000 ││  :8000  ││   :8000  ││   :8000   │        │     │    │
+│  │  │ └───┬───┘└───┬───┘└──┬──┬───┘└────┬─────┘└─────┬─────┘        │     │    │
+│  │  │     │        │       │  │          │            │              │     │    │
+│  │  │     │  all read/write│  │push jobs │            │              │     │    │
+│  │  │     └────┬───┴───────┘  │   ┌──────┴────────────┘              │     │    │
+│  │  │          ▼              │   ▼                                   │     │    │
+│  │  │  ┌───────────────┐   ┌─▼────────────┐                         │     │    │
+│  │  │  │  PostgreSQL   │   │    Redis      │◄── Analytics Service    │     │    │
+│  │  │  │  StatefulSet  │   │  StatefulSet  │    reads queue depth    │     │    │
+│  │  │  │  + PVC        │   │  + PVC        │    + counters           │     │    │
+│  │  │  │  :5432        │   │  :6379        │                         │     │    │
+│  │  │  └───────▲───────┘   └──────▲────────┘                         │     │    │
+│  │  │          │                  │                                   │     │    │
+│  │  │          │  writes posts    │ consumes queue                    │     │    │
+│  │  │          │  ┌───────────────┘                                   │     │    │
+│  │  │          │  │                                                   │     │    │
+│  │  │       ┌──┴──┴──────────────────┐                               │     │    │
+│  │  │       │   Worker Service       │                               │     │    │
+│  │  │       │   Deployment (no svc)  │                               │     │    │
+│  │  │       │   metrics :9100        │                               │     │    │
+│  │  │       └────────────────────────┘                               │     │    │
+│  │  │                                                                 │     │    │
+│  │  │  ServiceMonitors: auth, post, analytics, worker, like, comment │     │    │
+│  │  └─────────────────────────────────────────────────────────────────┘     │    │
+│  │                                                                          │    │
+│  │  ┌─────────────────────────────────────────────────────────────────┐     │    │
+│  │  │  NAMESPACE: monitoring                                          │     │    │
+│  │  │                                                                 │     │    │
+│  │  │  ┌────────────┐  scrapes   ┌──────────────────┐                │     │    │
+│  │  │  │ Prometheus │◄───────────│ ServiceMonitors   │                │     │    │
+│  │  │  │            │  (cross-ns)│ (devconnect +     │                │     │    │
+│  │  │  │            │            │  monitoring ns)    │                │     │    │
+│  │  │  └─────┬──────┘            └──────────────────┘                │     │    │
+│  │  │        │                                                        │     │    │
+│  │  │        │  data source                                           │     │    │
+│  │  │        ▼                                                        │     │    │
+│  │  │  ┌────────────┐  ┌────────────┐  ┌──────────────────────┐      │     │    │
+│  │  │  │  Grafana   │  │   Loki     │  │  Grafana Alloy       │      │     │    │
+│  │  │  │  :3001     │◄─│  (logs)    │◄─│  (log collector)     │      │     │    │
+│  │  │  │ dashboards │  │            │  │  ships K8s pod logs   │      │     │    │
+│  │  │  └────────────┘  └────────────┘  └──────────────────────┘      │     │    │
+│  │  │                                                                 │     │    │
+│  │  │  ┌────────────────┐ ┌───────────────┐ ┌─────────────────┐      │     │    │
+│  │  │  │ node-exporter  │ │ cAdvisor      │ │kube-state-metrics│     │     │    │
+│  │  │  │ (host metrics) │ │ (container    │ │(K8s object stats)│     │     │    │
+│  │  │  │                │ │  CPU/mem/disk) │ │                  │     │     │    │
+│  │  │  └────────────────┘ └───────────────┘ └──────────────────┘     │     │    │
+│  │  └─────────────────────────────────────────────────────────────────┘     │    │
+│  └──────────────────────────────────────────────────────────────────────────┘    │
++──────────────────────────────────────────────────────────────────────────────────+
+```
+
+### Component connection summary
+
+| Connection | Description |
+|---|---|
+| Developer -> GitHub | Code push or PR triggers CI/CD |
+| GitHub Actions -> DockerHub | Builds and pushes 8 container images tagged with git SHA |
+| GitHub Actions -> Git repo | Updates `kustomization.yaml` image tags (GitOps) |
+| GitHub Actions -> EC2 (SSH) | CD verification: checks ArgoCD sync, pod health, metrics |
+| Terraform -> AWS | Provisions EC2, security group, EBS volume |
+| ArgoCD -> Git repo | Watches kustomization overlay, auto-syncs to K8s |
+| K8s -> DockerHub | Pulls container images on deployment |
+| Traefik Ingress -> Frontend | Routes external HTTP traffic to Nginx |
+| Frontend (Nginx) -> FastAPI services | Reverse-proxies `/api/*` to auth, user, post, like, comment, analytics |
+| Auth, User, Like, Comment -> PostgreSQL | Read/write user data, posts, likes, comments |
+| Post Service -> Redis | Pushes post-create jobs to Redis Queue |
+| Worker Service -> Redis + PostgreSQL | Consumes queue jobs, writes posts to PostgreSQL |
+| Analytics Service -> Redis + PostgreSQL | Reads queue depth, counters, and DB aggregates |
+| Prometheus -> ServiceMonitors | Scrapes `/prometheus` on FastAPI services and `/metrics` on Worker (:9100) |
+| Grafana Alloy -> Loki | Collects and ships all K8s pod logs |
+| Grafana -> Prometheus + Loki | Dashboards for metrics and logs |
+| node-exporter, cAdvisor, kube-state-metrics -> Prometheus | Host, container, and K8s object metrics |
+| GitHub Actions -> Gmail SMTP | Sends branded CI/CD result email notifications |
+
+---
+
 ## 1. What you will deploy
 
 ### Application services
