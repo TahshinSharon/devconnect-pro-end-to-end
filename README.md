@@ -160,6 +160,52 @@ The diagram below shows how every component connects -- from developer laptop to
 | node-exporter, cAdvisor, kube-state-metrics -> Prometheus | Host, container, and K8s object metrics |
 | GitHub Actions -> Gmail SMTP | Sends branded CI/CD result email notifications |
 
+### Step-by-step connection walkthrough
+
+#### Phase 1: Code to CI/CD
+
+1. **Developer -> GitHub** -- You push code or open a PR to the GitHub repo. This triggers GitHub Actions workflows.
+2. **GitHub Actions -> DockerHub** -- The CI pipeline builds Docker images for all 8 app services (frontend, auth, user, post, like, comment, analytics, worker) and pushes them to DockerHub tagged with the git SHA.
+3. **GitHub Actions -> Git repo** -- After pushing images, the pipeline updates `kustomization.yaml` with the new image tags. This is the GitOps trigger -- the repo itself becomes the source of truth for what is deployed.
+4. **GitHub Actions -> Gmail SMTP** -- Sends email notifications about CI/CD results (pass/fail).
+
+#### Phase 2: Infrastructure provisioning
+
+5. **Terraform -> AWS** -- Provisions the EC2 instance (Ubuntu 22.04), security group (ports 22, 80, 443), and a 30 GB gp3 EBS volume. This is the production host running k3s.
+
+#### Phase 3: GitOps deployment
+
+6. **ArgoCD -> Git repo** -- ArgoCD watches the kustomization overlay in the repo. When it detects the image tag change from step 3, it auto-syncs the new manifests to the k3s cluster.
+7. **K8s -> DockerHub** -- During sync, Kubernetes pulls the new container images from DockerHub.
+8. **GitHub Actions -> EC2 (SSH)** -- The CD step SSHes into the EC2 machine to verify ArgoCD sync completed, pods are healthy, and metrics endpoints respond.
+
+#### Phase 4: Request flow (runtime)
+
+9. **Traefik Ingress -> Frontend** -- External HTTP traffic hits Traefik (k3s built-in ingress), which routes to the Nginx-served React frontend.
+10. **Frontend (Nginx) -> FastAPI services** -- Nginx reverse-proxies `/api/*` requests to the appropriate backend: auth, user, post, like, comment, or analytics service.
+
+#### Phase 5: Data flow
+
+11. **Auth, User, Like, Comment -> PostgreSQL** -- These services read/write directly to the shared PostgreSQL database (user accounts, posts, likes, comments).
+12. **Post Service -> Redis** -- When a user creates a post, the post service does not write to the DB directly. Instead it pushes a job onto a Redis Queue (async processing).
+13. **Worker Service -> Redis + PostgreSQL** -- The worker consumes jobs from the Redis Queue and writes the actual post data to PostgreSQL. This decouples request handling from DB writes.
+14. **Analytics Service -> Redis + PostgreSQL** -- Reads queue depth and counters from Redis, plus aggregated data from PostgreSQL, to provide metrics and status.
+
+#### Phase 6: Observability
+
+15. **Prometheus -> ServiceMonitors** -- Scrapes `/prometheus` endpoints on each FastAPI service and `/metrics` on the worker (port 9100) for app-level metrics.
+16. **node-exporter, cAdvisor, kube-state-metrics -> Prometheus** -- Feed host-level, container-level, and Kubernetes object metrics into Prometheus.
+17. **Grafana Alloy -> Loki** -- Collects all pod logs from Kubernetes and ships them to Loki for centralized log storage.
+18. **Grafana -> Prometheus + Loki** -- Dashboards query both Prometheus (metrics) and Loki (logs) for full observability.
+
+#### Key architectural feedback loops
+
+- **GitOps loop**: code push -> image build -> manifest update -> ArgoCD sync -> running pods
+- **Async data loop**: user request -> post service -> Redis queue -> worker -> PostgreSQL
+- **Observability loop**: running services -> Prometheus/Loki -> Grafana dashboards
+
+Each layer is decoupled. CI/CD never talks directly to Kubernetes -- it updates git, and ArgoCD handles the rest. The post service never writes to the DB -- it queues work, and the worker handles persistence. Monitoring scrapes everything passively without coupling to app logic.
+
 ---
 
 ## 1. What you will deploy
