@@ -15,6 +15,6 @@
   "overrides": {
     "browserslist": "4.28.7",
     "nanoid": "5.1.16",
-    "postcss": "8.5.18"
+    "postcss": "8.5.33"
   }
 }
