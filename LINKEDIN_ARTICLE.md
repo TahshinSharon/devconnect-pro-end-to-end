@@ -345,19 +345,11 @@ This is the actual deployment -- the same infrastructure described in this artic
 
 ---
 
-## Repository
+## Get in Touch
 
-The complete source code -- application services, Dockerfiles, Kubernetes manifests, Terraform configurations, CI/CD pipeline definitions, monitoring configurations, and bootstrap scripts -- is publicly available:
-
-github.com/TahshinSharon/devconnect-pro-end-to-end
-
-If you want the source code or have questions about any part of this build, message me or reach out through my portfolio: https://tahshinsharon.github.io/contact/
-
----
+If you have questions about any part of this build or want to discuss the architecture in detail, message me or reach out through my portfolio: https://tahshinsharon.github.io/contact/
 
 If you are building a career in DevOps, cloud engineering, or platform engineering, I would strongly encourage you to construct something like this yourself. Reading about Kubernetes and CI/CD gives you vocabulary. Building a complete delivery pipeline from infrastructure provisioning to production observability gives you understanding. Those are fundamentally different things.
-
-I am happy to discuss any part of this architecture in detail. Feel free to reach out.
 
 ---
 
