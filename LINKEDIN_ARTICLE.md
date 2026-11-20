@@ -230,8 +230,21 @@ The pipeline establishes an SSH connection to the EC2 instance and verifies the 
 
 This is the stage most tutorials omit entirely. Building and pushing container images is insufficient. You need automated verification that the deployment succeeded, that pods are running, and that the application is serving traffic with the correct behavior.
 
-### Stage 6: Notification
-A branded HTML email notification is dispatched with the complete pipeline result -- which stages passed, which failed, and a direct link to the workflow run. Delivered via Gmail SMTP with App Password authentication.
+### Stage 6: Automated Email Notification
+
+The final stage dispatches a branded HTML email notification on every pipeline run -- regardless of whether it succeeded or failed. This runs with `if: always()` so it executes even when upstream stages fail.
+
+**How it works:**
+
+1. A result-decision step evaluates the outcome of all five preceding stages. If every required stage passed (with optional stages like Docker and GitOps allowed to be skipped on PRs), the pipeline status is `SUCCESS`. Otherwise, `FAILED`.
+
+2. The notification job uses `dawidd6/action-send-mail@v3` with Gmail SMTP and App Password authentication. Four secrets drive this: `SMTP_SERVER`, `SMTP_PORT`, `SMTP_USERNAME`, and `SMTP_PASSWORD`. A fifth secret, `CI_EMAIL_RECIPIENT`, controls the destination address.
+
+3. The email body is a fully styled HTML template rendered inline in the workflow YAML -- dark-themed, with a gradient header, a color-coded status badge (green for success, red for failure), a metadata table (repository, branch, commit SHA, actor), a grid showing each stage's individual result, and a direct link to the GitHub Actions workflow run.
+
+4. A plaintext fallback body is included for email clients that do not render HTML.
+
+**Why this matters:** Most CI/CD tutorials stop at "deploy succeeded" in the terminal. In practice, pipeline results need to reach people who are not watching the GitHub Actions tab. Automated email notification closes that feedback loop -- the team knows within seconds whether a push to main landed cleanly or broke something, without anyone checking manually.
 
 ---
 
@@ -287,6 +300,24 @@ Grafana connects to Prometheus as a data source and provides pre-configured dash
 Loki serves as the log aggregation backend -- the equivalent of Prometheus, but for log data. Grafana Alloy is deployed as a DaemonSet agent that collects logs from all pods across the cluster and ships them to Loki. Within Grafana, logs are queryable by namespace, pod, or service label, and can be correlated directly with metrics on the same timeline.
 
 This correlation is where observability becomes genuinely powerful. When a spike in error rate appears on a Grafana dashboard, you can click on that exact timestamp and immediately surface the corresponding log entries from that moment.
+
+---
+
+## Challenges I Faced Along the Way
+
+Building this was not a smooth, linear process. Every layer introduced its own class of problems. Here are the ones that consumed the most debugging time.
+
+**SSH private key handling in GitHub Actions.** This one cost me multiple commits. GitHub Actions stores secrets as strings, and multi-line secrets like SSH private keys are notoriously fragile. The key kept failing silently during the CD verification stage -- the SSH connection would just refuse to authenticate. The root cause was inconsistent line endings and trailing whitespace being injected when the secret was written to a file. The fix was switching from `echo` to `printf '%s\n'` and being extremely precise about file permissions (600 for the key, 700 for the ~/.ssh directory). It took three consecutive fix commits before the pipeline SSH'd into EC2 reliably.
+
+**CVE threshold tuning with OWASP Dependency-Check.** My initial configuration failed the pipeline on any CVE finding at all, which turned out to be impractical -- transitive dependencies in the Python ecosystem carry a long tail of low-severity findings that are either unfixable or irrelevant to the application context. I landed on `--failOnCVSS 9` as the threshold: fail the pipeline on critical vulnerabilities (CVSS 9.0+) while still generating the full HTML report as a build artifact for manual review of lower-severity findings.
+
+**Vulnerable dependency in a core library.** Trivy flagged PyJWT with CVE-2026-102268 -- a vulnerability in the JWT library that every authentication flow in the platform depended on. This was not a transitive dependency I could ignore. The fix required bumping PyJWT from 2.13.0 to 2.14.0 across all services, verifying that the JWT token issuance and validation behavior remained identical, and confirming the scan passed clean afterward. It was a concrete reminder that security scanning is only useful if you actually act on the findings.
+
+**Dockerfile build failures in CI.** The Docker images that built cleanly on my local machine failed in the GitHub Actions runner. The issue came down to differences in the build context and dependency caching behavior between local Docker and the CI environment using Buildx. Each service needed its Dockerfile reviewed to ensure all required files were properly included in the build context and that the layer caching strategy worked correctly in a stateless CI runner.
+
+**ArgoCD sync timing during verification.** The CD verification stage SSHes into EC2 and checks whether ArgoCD has synced and all pods are healthy. The problem: ArgoCD operates on a polling interval, so immediately after the GitOps manifest commit, the cluster state has not yet converged. I solved this with a polling loop -- up to 60 attempts, 10 seconds apart, checking both sync status and health status. Without this, the verification stage would intermittently fail on perfectly valid deployments simply because it checked too early.
+
+**Keeping Docker Compose and Kubernetes service names aligned.** This was a design decision that paid off but required discipline. The Nginx reverse proxy routes to services by name (`auth-service:8000`, `post-service:8000`). If Docker Compose used one naming convention and Kubernetes used another, the proxy configuration would need environment-specific overrides. By enforcing identical service names across both environments from the start, the same Nginx configuration works unchanged in local development and production.
 
 ---
 
