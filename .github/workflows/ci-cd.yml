@@ -242,7 +242,7 @@ jobs:
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
 
-          echo "$EC2_SSH_PRIVATE_KEY" | sed 's/\\n/\n/g' > ~/.ssh/devconnect_ec2
+          printf '%s\n' "$EC2_SSH_PRIVATE_KEY" > ~/.ssh/devconnect_ec2
           chmod 600 ~/.ssh/devconnect_ec2
 
           ssh-keyscan -p "$EC2_SSH_PORT" "$EC2_HOST" >> ~/.ssh/known_hosts 2>/dev/null
