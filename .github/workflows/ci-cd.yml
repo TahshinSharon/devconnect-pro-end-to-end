@@ -264,16 +264,10 @@ jobs:
           kubectl get nodes
 
           echo "==> Triggering ArgoCD hard refresh and sync"
-          kubectl -n argocd annotate application devconnect argocd.argoproj.io/refresh=hard --overwrite || true
-          sleep 5
-
-          # If sync status is still Unknown after refresh, trigger sync via operation patch
-          sync_check=$(kubectl -n argocd get application devconnect -o jsonpath='{.status.sync.status}' 2>/dev/null || true)
-          if [ "$sync_check" != "Synced" ]; then
-            echo "Sync status is '${sync_check}', triggering explicit sync via kubectl patch"
-            kubectl -n argocd patch application devconnect --type merge -p '{"operation":{"initiatedBy":{"username":"ci"},"sync":{"revision":"HEAD","prune":true}}}' || true
-            sleep 10
-          fi
+          ARGOCD_PWD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d)
+          kubectl -n argocd exec deploy/argocd-server -- \
+            sh -c "argocd login localhost:8080 --plaintext --username admin --password '${ARGOCD_PWD}' >/dev/null 2>&1 && argocd app get devconnect --server localhost:8080 --plaintext --hard-refresh >/dev/null 2>&1 && argocd app sync devconnect --server localhost:8080 --plaintext --prune --force" || true
+          sleep 10
 
           echo "==> Waiting for ArgoCD application to become Synced and Healthy"
           for i in $(seq 1 60); do
