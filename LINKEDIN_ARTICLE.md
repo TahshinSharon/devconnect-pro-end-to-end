@@ -1,22 +1,40 @@
 # I Built a Full End-to-End DevOps Pipeline From Scratch. Here Is Exactly How It Works.
 
-I spent the last month doing something I should have done a long time ago -- I stopped consuming DevOps content and started engineering a complete delivery system from the ground up. Not a "deploy a static site to S3" walkthrough. A production-grade pipeline that takes a git push through automated testing, security hardening, container builds, declarative deployment, and runtime verification -- all without a single manual intervention.
+DevConnect Pro: a 10-service microservices platform with a fully automated delivery pipeline -- from git push to verified Kubernetes deployment on AWS. No manual intervention at any stage.
 
-The result is DevConnect Pro: a distributed microservices platform comprising 10 services, fully orchestrated from source control to a verified Kubernetes deployment on AWS.
-
-This article breaks down every layer of that system -- the architectural decisions, the tooling choices, and the integration challenges that no single tutorial covers.
+This article covers every layer: infrastructure provisioning, container orchestration, CI/CD, GitOps, security scanning, and observability.
 
 ---
 
 ## The Gap I Set Out to Close
 
-The standard DevOps learning path teaches tools in silos. Docker in one course. Kubernetes in another. CI/CD pipelines somewhere else. What is consistently missing is the connective tissue -- how these systems interact, depend on each other, and fail together in a real environment.
+Most DevOps learning paths teach tools in isolation. What is missing is the integration -- how these systems interact, depend on each other, and fail together.
 
-I wanted to build a system where:
-- A single commit to main initiates a fully automated delivery cycle: test, scan, build, deploy, verify
-- Zero manual intervention is required at any stage -- no SSH, no kubectl, no console clicks
-- Every failure is observable through metrics, dashboards, and centralized logs before a user ever notices
-- The entire infrastructure is reproducible, versioned, and auditable through code
+Goals for this build:
+- Single commit to main triggers the full cycle: test, scan, build, deploy, verify
+- Zero manual intervention -- no SSH, no kubectl, no console clicks
+- Full observability through metrics, dashboards, and centralized logs
+- All infrastructure reproducible, versioned, and auditable through code
+
+---
+
+## Complete Technology Stack
+
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| Application | Python, FastAPI, React, Nginx | 7 backend microservices + frontend SPA |
+| Data | PostgreSQL 16, Redis 7 | Persistence + async message broker |
+| Containers | Docker, Docker Compose | Image builds, local dev environment |
+| Infrastructure | Terraform, AWS EC2, IAM, SGs | Declarative cloud provisioning |
+| Orchestration | k3s, Kustomize | Container scheduling, manifest management |
+| Ingress | Traefik | Traffic routing and load balancing |
+| CI/CD | GitHub Actions (6-stage) | Test, scan, build, push, deploy, verify |
+| Security | Trivy, OWASP Dep-Check, SonarQube | Filesystem, image, and code scanning |
+| GitOps | ArgoCD | Git-driven continuous deployment |
+| Metrics | Prometheus, kube-state-metrics, cAdvisor, Node Exporter | Multi-layer metrics collection |
+| Visualization | Grafana | Dashboards for metrics and logs |
+| Logging | Loki, Grafana Alloy | Log aggregation and correlation |
+| VCS | Git, GitHub | Source of truth for app and infra code |
 
 ---
 
@@ -283,26 +301,6 @@ This correlation is where observability becomes genuinely powerful. When a spike
 **Observability is not a post-launch concern -- it is a design requirement.** The first time a pod entered a crash loop, I had Prometheus metrics isolating the exact moment it began failing, Grafana graphs showing the memory spike that triggered the OOM kill, and Loki logs surfacing the full stack trace. Without that stack, I would have been reduced to guesswork.
 
 **The integration layer is where the real engineering happens.** Individual tools are well-documented in isolation. But orchestrating Prometheus to scrape custom FastAPI metrics through ServiceMonitor CRDs, configuring ArgoCD to reconcile Kustomize overlays with image tags injected by CI, and having GitHub Actions SSH into EC2 to verify deployment health -- that integration work is where the real understanding develops. No tutorial covers it comprehensively because every system is different.
-
----
-
-## Complete Technology Stack
-
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| **Application** | Python, FastAPI, React, Nginx | 7 backend microservices + frontend SPA |
-| **Data Layer** | PostgreSQL 16, Redis 7 | Relational persistence + asynchronous message broker |
-| **Containerization** | Docker, Docker Compose | Image builds, local development environment |
-| **Infrastructure** | Terraform, AWS EC2, IAM, Security Groups | Declarative cloud resource provisioning |
-| **Orchestration** | k3s (Kubernetes), Kustomize | Container scheduling, manifest management |
-| **Ingress** | Traefik | External traffic routing and load balancing |
-| **CI/CD** | GitHub Actions (6-stage pipeline) | Automated test, scan, build, push, deploy, verify |
-| **Security** | Trivy, OWASP Dependency-Check, SonarQube | Vulnerability scanning at filesystem, image, and code levels |
-| **GitOps** | ArgoCD | Declarative, Git-driven continuous deployment |
-| **Metrics** | Prometheus, kube-state-metrics, cAdvisor, Node Exporter | Multi-layer metrics collection and storage |
-| **Visualization** | Grafana | Unified dashboard for metrics and log exploration |
-| **Logging** | Loki, Grafana Alloy | Centralized log aggregation and correlation |
-| **Version Control** | Git, GitHub | Source of truth for application and infrastructure code |
 
 ---
 
