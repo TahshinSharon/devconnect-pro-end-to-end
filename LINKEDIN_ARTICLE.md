@@ -335,11 +335,23 @@ Building this was not a smooth, linear process. Every layer introduced its own c
 
 ---
 
+## Live Demo
+
+You can test the running platform here:
+
+[LIVE_URL_PLACEHOLDER]
+
+This is the actual deployment -- the same infrastructure described in this article, running on AWS with the full pipeline behind it.
+
+---
+
 ## Repository
 
 The complete source code -- application services, Dockerfiles, Kubernetes manifests, Terraform configurations, CI/CD pipeline definitions, monitoring configurations, and bootstrap scripts -- is publicly available:
 
 github.com/TahshinSharon/devconnect-pro-end-to-end
+
+If you want the source code or have questions about any part of this build, message me or reach out through my portfolio: https://tahshinsharon.github.io/contact/
 
 ---
 
