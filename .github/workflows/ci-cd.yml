@@ -240,11 +240,13 @@ jobs:
           test -n "$EC2_SSH_PORT" || { echo "EC2_SSH_PORT is missing"; exit 1; }
 
           mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
 
-          printf '%s\n' "$EC2_SSH_PRIVATE_KEY" > ~/.ssh/devconnect_ec2
+          echo "$EC2_SSH_PRIVATE_KEY" | sed 's/\\n/\n/g' > ~/.ssh/devconnect_ec2
           chmod 600 ~/.ssh/devconnect_ec2
 
-          ssh-keyscan -p "$EC2_SSH_PORT" "$EC2_HOST" >> ~/.ssh/known_hosts
+          ssh-keyscan -p "$EC2_SSH_PORT" "$EC2_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          test -s ~/.ssh/known_hosts || { echo "ssh-keyscan failed: no host keys collected"; exit 1; }
 
           ssh -i ~/.ssh/devconnect_ec2 \
             -p "$EC2_SSH_PORT" \
