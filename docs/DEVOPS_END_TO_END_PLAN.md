@@ -37,14 +37,14 @@ Push to main
 ## DockerHub Images
 
 ```text
-bongodev/devconnect-frontend
-bongodev/devconnect-auth-service
-bongodev/devconnect-user-service
-bongodev/devconnect-post-service
-bongodev/devconnect-like-service
-bongodev/devconnect-comment-service
-bongodev/devconnect-analytics-service
-bongodev/devconnect-worker-service
+tahshin27031/devconnect-frontend
+tahshin27031/devconnect-auth-service
+tahshin27031/devconnect-user-service
+tahshin27031/devconnect-post-service
+tahshin27031/devconnect-like-service
+tahshin27031/devconnect-comment-service
+tahshin27031/devconnect-analytics-service
+tahshin27031/devconnect-worker-service
 ```
 
 ## Kubernetes Runtime

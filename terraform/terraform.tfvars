@@ -1,5 +1,5 @@
 # AWS region
-aws_region = "us-west-2"
+aws_region = "ap-southeast-1"
 
 # t3.medium = 2 vCPU / 4 GiB RAM. Good minimum for lab.
 # For smoother Grafana/Prometheus/ArgoCD demos, use t3.large.
@@ -32,5 +32,5 @@ enable_monitoring_admin_ports = false
 enable_ssm = true
 
 extra_tags = {
-  Course = "bongoDev Batch 5"
+  Course = "DevConnect Pro Lab"
 }

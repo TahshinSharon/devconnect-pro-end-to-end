@@ -175,7 +175,7 @@ function ArchitecturePage() {
         <div className="architecture-diagram">
           <DiagramNode icon={<GitBranch />} label="CI/CD Pipeline" text="Pull requests run tests, Trivy, OWASP Dependency-Check, and SonarQube. Main branch builds images and pushes them to DockerHub." />
           <DiagramArrow />
-          <DiagramNode icon={<Container />} label="DockerHub Images" text="Each app service is published as a separate container image under bongodev/* and referenced by Kubernetes manifests." />
+          <DiagramNode icon={<Container />} label="DockerHub Images" text="Each app service is published as a separate container image under tahshin27031/* and referenced by Kubernetes manifests." />
           <DiagramArrow />
           <DiagramNode icon={<Route />} label="ArgoCD GitOps" text="ArgoCD watches the Kubernetes manifests in Git and syncs the desired state into the k3s cluster running on EC2." highlight />
           <DiagramArrow />

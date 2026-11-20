@@ -4,19 +4,19 @@ namespace: devconnect
 resources:
   - ../../base
 images:
-  - name: bongodev/devconnect-frontend
+  - name: tahshin27031/devconnect-frontend
     newTag: latest
-  - name: bongodev/devconnect-auth-service
+  - name: tahshin27031/devconnect-auth-service
     newTag: latest
-  - name: bongodev/devconnect-user-service
+  - name: tahshin27031/devconnect-user-service
     newTag: latest
-  - name: bongodev/devconnect-post-service
+  - name: tahshin27031/devconnect-post-service
     newTag: latest
-  - name: bongodev/devconnect-like-service
+  - name: tahshin27031/devconnect-like-service
     newTag: latest
-  - name: bongodev/devconnect-comment-service
+  - name: tahshin27031/devconnect-comment-service
     newTag: latest
-  - name: bongodev/devconnect-analytics-service
+  - name: tahshin27031/devconnect-analytics-service
     newTag: latest
-  - name: bongodev/devconnect-worker-service
+  - name: tahshin27031/devconnect-worker-service
     newTag: latest

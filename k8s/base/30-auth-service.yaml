@@ -34,7 +34,7 @@ spec:
     spec:
       containers:
         - name: auth-service
-          image: bongodev/devconnect-auth-service:latest
+          image: tahshin27031/devconnect-auth-service:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8000

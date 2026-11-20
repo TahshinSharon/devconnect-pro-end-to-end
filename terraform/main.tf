@@ -39,7 +39,7 @@ locals {
       Project     = var.project_name
       Environment = var.environment
       ManagedBy   = "terraform"
-      Owner       = "bongoDev"
+      Owner       = "Tahshin Sharon"
     },
     var.extra_tags
   )

@@ -56,6 +56,6 @@ def test_github_actions_has_runtime_verification_and_branded_email():
     assert "Verify ArgoCD Runtime Deployment" in workflow
     assert "kubectl -n argocd get application devconnect" in workflow
     assert "rollout status deployment/frontend" in workflow
-    assert "bongoDev DevConnect CI/CD" in workflow
+    assert "Tahshin Sharon DevConnect CI/CD" in workflow
     assert "html_body" in workflow
     assert "smtp.gmail.com" not in workflow  # configured via secret, not hard-coded

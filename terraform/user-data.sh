@@ -30,7 +30,7 @@ sysctl --system || true
 cat >/etc/motd <<'MOTD'
 ============================================================
 DevConnect Pro EC2 Lab Machine
-Provisioned by Terraform for bongoDev.
+Provisioned by Terraform for Tahshin Sharon.
 
 Next steps:
 1. git clone your DevConnect repository

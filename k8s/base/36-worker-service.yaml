@@ -34,7 +34,7 @@ spec:
     spec:
       containers:
         - name: worker-service
-          image: bongodev/devconnect-worker-service:latest
+          image: tahshin27031/devconnect-worker-service:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 9100

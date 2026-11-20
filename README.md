@@ -2,7 +2,7 @@
 
 DevConnect Pro is a 10-service microservices-style social application for DevOps and Cloud Engineering students. The project starts locally with Docker Compose and then moves into a complete CI/CD + Kubernetes + GitOps + Monitoring deployment on an EC2 machine.
 
-DockerHub username configured in this project: **`bongodev`**
+DockerHub username configured in this project: **`tahshin27031`**
 
 ---
 
@@ -43,7 +43,7 @@ The diagram below shows how every component connects -- from developer laptop to
 │  GIT REPO     │    │  DOCKERHUB         │
 │  (GitOps)     │    │  (Image Registry)  │
 │               │    │                    │
-│  k8s/overlays │    │  bongodev/         │
+│  k8s/overlays │    │  tahshin27031/         │
 │  /prod/       │    │   devconnect-*:sha │
 │  kustomization│    │   devconnect-*:latest
 │  .yaml        │    +────────────────────┘
@@ -527,11 +527,11 @@ Add these secrets:
 | `EC2_SSH_PORT` | Optional | SSH port, default `22` |
 | `SMTP_SERVER` | Required for email | Gmail SMTP server, use `smtp.gmail.com` |
 | `SMTP_PORT` | Required for email | Gmail SMTP port, use `587` |
-| `SMTP_USERNAME` | Required for email | Gmail address used to send bongoDev notifications |
+| `SMTP_USERNAME` | Required for email | Gmail address used to send Tahshin Sharon notifications |
 | `SMTP_PASSWORD` | Required for email | Gmail App Password, not your normal Google password |
 | `CI_EMAIL_RECIPIENT` | Required for email | Email recipient for CI/CD result |
 
-### Gmail SMTP for bongoDev branded notifications
+### Gmail SMTP for Tahshin Sharon branded notifications
 
 Use these values for Gmail-based CI/CD email notifications:
 
@@ -549,7 +549,7 @@ Important Gmail setup notes:
 2. Create a Google App Password for GitHub Actions.
 3. Store the App Password as `SMTP_PASSWORD` in GitHub Secrets.
 4. Do not use your normal Gmail password.
-5. The workflow sends a bongoDev branded HTML email for success or failure.
+5. The workflow sends a Tahshin Sharon branded HTML email for success or failure.
 
 Important:
 
@@ -597,20 +597,20 @@ Commit/push GitOps manifest update
 ArgoCD detects the change and deploys
 GitHub Actions SSHes into EC2 and verifies ArgoCD is Synced + Healthy
 GitHub Actions verifies Kubernetes rollout status and app metrics endpoints
-Send bongoDev branded Gmail notification if configured
+Send Tahshin Sharon branded Gmail notification if configured
 ```
 
 DockerHub images pushed by the pipeline:
 
 ```text
-bongodev/devconnect-frontend
-bongodev/devconnect-auth-service
-bongodev/devconnect-user-service
-bongodev/devconnect-post-service
-bongodev/devconnect-like-service
-bongodev/devconnect-comment-service
-bongodev/devconnect-analytics-service
-bongodev/devconnect-worker-service
+tahshin27031/devconnect-frontend
+tahshin27031/devconnect-auth-service
+tahshin27031/devconnect-user-service
+tahshin27031/devconnect-post-service
+tahshin27031/devconnect-like-service
+tahshin27031/devconnect-comment-service
+tahshin27031/devconnect-analytics-service
+tahshin27031/devconnect-worker-service
 ```
 
 Image tags:
@@ -688,7 +688,7 @@ Before depending on the pipeline, check these:
 
    Without these secrets, CI can build and push images, but CD runtime verification cannot prove the app is healthy in EC2.
 
-7. **bongoDev branded email notifications**
+7. **Tahshin Sharon branded email notifications**
 
    The `notify` job sends an HTML email showing:
 
@@ -1148,7 +1148,7 @@ kubectl -n devconnect logs deploy/analytics-service --tail=100
 
 ## 21. CI/CD notification setup
 
-GitHub Actions sends a bongoDev branded HTML email after pipeline completion when Gmail SMTP secrets are configured.
+GitHub Actions sends a Tahshin Sharon branded HTML email after pipeline completion when Gmail SMTP secrets are configured.
 
 Use these GitHub Secrets:
 
@@ -1286,7 +1286,7 @@ Check:
 ```text
 DOCKERHUB_TOKEN exists
 DockerHub token is valid
-DockerHub username is bongodev
+DockerHub username is tahshin27031
 Repository has Actions enabled
 ```
 
@@ -1347,7 +1347,7 @@ Kustomization tag was not updated
 Check DockerHub image name:
 
 ```text
-bongodev/devconnect-<service>:<git-sha>
+tahshin27031/devconnect-<service>:<git-sha>
 ```
 
 ### ArgoCD is OutOfSync
@@ -1567,7 +1567,7 @@ Students should submit screenshots or links showing:
 1. Local Docker Compose app running
 2. Passing tests locally
 3. GitHub Actions PR pipeline passing
-4. DockerHub images pushed under bongodev or their own DockerHub account
+4. DockerHub images pushed under tahshin27031 or their own DockerHub account
 5. EC2/k3s node ready
 6. ArgoCD application synced and healthy
 7. DevConnect pods running in Kubernetes
@@ -1579,7 +1579,7 @@ Students should submit screenshots or links showing:
 13. cAdvisor container metrics target visible
 14. Loki/Grafana logs visible
 15. ArgoCD runtime verification job passing in GitHub Actions
-16. bongoDev branded CI/CD success/failure email notification
+16. Tahshin Sharon branded CI/CD success/failure email notification
 ```
 
 ---

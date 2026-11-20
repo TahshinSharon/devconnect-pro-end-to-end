@@ -32,5 +32,5 @@ enable_monitoring_admin_ports = false
 enable_ssm = true
 
 extra_tags = {
-  Course = "bongoDev Batch 5"
+  Course = "DevConnect Pro Lab"
 }
