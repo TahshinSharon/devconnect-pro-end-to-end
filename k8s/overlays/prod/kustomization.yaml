@@ -5,18 +5,18 @@ resources:
   - ../../base
 images:
   - name: tahshin27031/devconnect-frontend
-    newTag: latest
+    newTag: e746129dcaea0bb06cd95fc8d90f01c88087422d
   - name: tahshin27031/devconnect-auth-service
-    newTag: latest
+    newTag: e746129dcaea0bb06cd95fc8d90f01c88087422d
   - name: tahshin27031/devconnect-user-service
-    newTag: latest
+    newTag: e746129dcaea0bb06cd95fc8d90f01c88087422d
   - name: tahshin27031/devconnect-post-service
-    newTag: latest
+    newTag: e746129dcaea0bb06cd95fc8d90f01c88087422d
   - name: tahshin27031/devconnect-like-service
-    newTag: latest
+    newTag: e746129dcaea0bb06cd95fc8d90f01c88087422d
   - name: tahshin27031/devconnect-comment-service
-    newTag: latest
+    newTag: e746129dcaea0bb06cd95fc8d90f01c88087422d
   - name: tahshin27031/devconnect-analytics-service
-    newTag: latest
+    newTag: e746129dcaea0bb06cd95fc8d90f01c88087422d
   - name: tahshin27031/devconnect-worker-service
-    newTag: latest
+    newTag: e746129dcaea0bb06cd95fc8d90f01c88087422d
